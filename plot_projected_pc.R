@@ -1,0 +1,313 @@
+#!/usr/bin/env Rscript
+
+library(data.table)
+library(hexbin)
+library(optparse)
+library(patchwork)
+library(tidyverse)
+options(datatable.fread.datatable = FALSE)
+
+plt_theme <-
+  theme_classic(base_size = 8) +
+  theme(
+    panel.background = element_rect(fill = "transparent", color = NA),
+    plot.background = element_rect(fill = "transparent", color = NA),
+    legend.background = element_rect(fill = "transparent", color = NA),
+    legend.box.background = element_rect(fill = "transparent", color = NA),
+    plot.margin = margin(0.1, 0.1, 0.1, 0.1, unit = "cm")
+  )
+
+
+# cf: https://github.com/macarthur-lab/gnomad_lof/blob/master/R/constants.R
+get_pop_colors <- function(pop = NULL) {
+  color_afr <- "#941494"
+  color_amr <- "#ED1E24"
+  color_asj <- "coral"
+  color_eas <- "#108C44"
+  color_eur <- color_nfe <- "#6AA5CD"
+  color_fin <- "#002F6C"
+  color_mde <- "#33CC33"
+  color_mid <- "#EEA9B8"
+  color_oth <- "#ABB9B9"
+  color_sas <- "#FF9912"
+
+  color_cases <- "#9D1309"
+  color_controls <- "grey50"
+
+  pop_colors <- c(
+    AFR = color_afr,
+    AMR = color_amr,
+    ASJ = color_asj,
+    EAS = color_eas,
+    EUR = color_eur,
+    FIN = color_fin,
+    MDE = color_mde,
+    MID = color_mid,
+    NFE = color_nfe,
+    SAS = color_sas,
+    cases = color_cases,
+    controls = color_controls
+  )
+
+  if (!is.null(pop)) {
+    return(pop_colors[pop])
+  }
+  return(pop_colors)
+}
+
+
+# cf. https://github.com/atgu/ukbb_pan_ancestry/blob/master/plot_ukbb_pca.R
+plot_pca <- function(dataset, first_pc, second_pc, color_pop, xlim = NULL, ylim = NULL) {
+  pc_biplot <-
+    dplyr::arrange(dataset, !!as.symbol(color_pop)) %>%
+    ggplot(aes_string(x = first_pc, y = second_pc, color = color_pop)) +
+    geom_point(alpha = 0.2) +
+    guides(color = guide_legend(override.aes = list(alpha = 1))) +
+    plt_theme +
+    scale_color_manual(values = get_pop_colors(), name = "Population", na.value = "grey50") +
+    coord_cartesian(xlim = xlim, ylim = ylim)
+  return(pc_biplot)
+}
+
+
+plot_pca_density <- function(dataset, first_pc, second_pc, xlim = NULL, ylim = NULL) {
+  pc_biplot <-
+    ggplot(dataset, aes_string(x = first_pc, y = second_pc)) +
+    geom_hex(bins = 50) +
+    plt_theme +
+    scale_fill_gradientn(
+      trans = "log", name = "Count",
+      colours = rev(RColorBrewer::brewer.pal(5, "Spectral"))
+    ) +
+    coord_cartesian(xlim = xlim, ylim = ylim)
+  return(pc_biplot)
+}
+
+
+save_plots <- function(plots, prefix, pc_num) {
+  ggsave(
+    sprintf("%s.PC1-%d.all.png", prefix, pc_num),
+    plots,
+    height = 3 * (pc_num %/% 4 + 1),
+    width = 6,
+    dpi = 300
+  )
+
+  for (i in seq(1, pc_num, by = 2)) {
+    ggsave(
+      sprintf("%s.PC%d-%d.png", prefix, i, i + 1),
+      plots[[(i + 1) / 2]] + theme(
+        legend.position = "none",
+        axis.title = element_blank(),
+        axis.text = element_blank()
+      ),
+      height = 6,
+      width = 6,
+      bg = "transparent",
+      dpi = 300
+    )
+  }
+
+  return(NULL)
+}
+
+
+main <- function(args) {
+  # Load projected PCs
+  message(sprintf("Loading --sscore %s", args$sscore))
+  projected_pc <- data.table::fread(args$sscore, colClasses = list(character = c("#FID", "IID")))
+  colnames(projected_pc) <- gsub("^#", "", colnames(projected_pc))
+  colnames(projected_pc) <- gsub("_SUM$", "", colnames(projected_pc))
+
+  # Load cohort PCs
+  message(sprintf("Loading --covariate-file %s", args$covariate_file))
+  cohort_pc <-
+    data.table::fread(args$covariate_file, colClasses = list(character = c("FID", "IID"))) %>%
+    dplyr::select(FID, IID, dplyr::starts_with(args$pc_prefix))
+
+  # Load or set ancestry
+  if (!is.null(args$ancestry)) {
+    projected_pc <- dplyr::mutate(projected_pc, pop = args$ancestry)
+    cohort_pc <- dplyr::mutate(cohort_pc, pop = args$ancestry)
+  } else {
+    message(sprintf("Loading --ancestry-file %s", args$ancestry_file))
+    ancestry <-
+      data.table::fread(args$ancestry_file, colClasses = list(character = c("FID", "IID"))) %>%
+      dplyr::rename(pop = !!as.symbol(args$ancestry_col)) %>%
+      dplyr::select(FID, IID, pop)
+    projected_pc <- dplyr::left_join(projected_pc, ancestry)
+    cohort_pc <- dplyr::left_join(cohort_pc, ancestry)
+  }
+
+  # Load phenotype
+  message(sprintf("Loading --phenotype-file %s", args$phenotype_file))
+  pheno <-
+    data.table::fread(args$phenotype_file, colClasses = list(character = c("FID", "IID"))) %>%
+    dplyr::rename(pheno = !!as.symbol(args$phenotype_col)) %>%
+    dplyr::select(FID, IID, pheno) %>%
+    dplyr::mutate(pheno = dplyr::case_when(
+      pheno == 1 ~ "cases",
+      pheno == 0 ~ "controls",
+      TRUE ~ NA_character_
+    ))
+
+  # Only retain samples with phenotype
+  projected_pc <-
+    dplyr::left_join(projected_pc, pheno) %>%
+    tidyr::drop_na(pheno)
+  cohort_pc <-
+    dplyr::left_join(cohort_pc, pheno) %>%
+    tidyr::drop_na(pheno)
+
+  # Plot PC figures
+  plot_all <- function(df, prefix) {
+    pca <-
+      Reduce(`+`, c(apply(matrix(seq(args$plot_pc_num), ncol = 2, byrow = TRUE), 1, function(x) {
+        pc <- paste0("PC", x)
+        plot_pca(df, pc[1], pc[2], "pop")
+      }), list(patchwork::guide_area()))) + patchwork::plot_layout(ncol = 2, guides = "collect")
+
+    pca_case_control <-
+      Reduce(`+`, c(apply(matrix(seq(args$plot_pc_num), ncol = 2, byrow = TRUE), 1, function(x) {
+        pc <- paste0("PC", x)
+        plot_pca(df, pc[1], pc[2], "pheno")
+      }), list(patchwork::guide_area()))) + patchwork::plot_layout(ncol = 2, guides = "collect")
+
+    pca_density <-
+      Reduce(`+`, apply(matrix(
+        seq(args$plot_pc_num),
+        ncol = 2, byrow = TRUE
+      ), 1, function(x) {
+        pc <- paste0("PC", x)
+        plot_pca_density(df, pc[1], pc[2]) +
+          theme(legend.position = "none")
+      })) + patchwork::plot_layout(ncol = 2)
+
+    save_plots(pca, paste0(prefix, ".pca.ancestry"), args$plot_pc_num)
+    save_plots(pca_case_control, paste0(prefix, ".pca.case_control"), args$plot_pc_num)
+    save_plots(
+      pca_density,
+      paste0(prefix, ".pca.density"),
+      args$plot_pc_num
+    )
+  }
+
+  message("Plotting PC figures...")
+  plot_all(projected_pc, paste0(args$out, ".projected"))
+  plot_all(cohort_pc, paste0(args$out, ".cohort"))
+
+  # Export per-sample PC values
+  if (!args$disable_export) {
+    fname <- paste0(args$out, ".projected.pca.tsv.gz")
+    message(paste("Removing individual IDs and exporting ", fname))
+    dplyr::select(projected_pc, -FID, -IID) %>%
+      data.table::fwrite(fname, sep = "\t")
+  }
+
+  message("Successfully finished!")
+}
+
+option_list <- list(
+  optparse::make_option(
+    "--sscore",
+    type = "character",
+    help = "Path to the PLINK 2's .sscore output",
+  ),
+  optparse::make_option(
+    "--ancestry",
+    type = "character",
+    help = "Continental ancestry of participants",
+  ),
+  optparse::make_option(
+    "--ancestry-file",
+    type = "character",
+    help = "Path to an ancestry file",
+    dest = "ancestry_file"
+  ),
+  optparse::make_option(
+    "--ancestry-col",
+    type = "character",
+    help = "Name of ancestry column",
+    dest = "ancestry_col"
+  ),
+  optparse::make_option(
+    "--phenotype-file",
+    type = "character",
+    help = "Path to a phenotype file",
+    dest = "phenotype_file"
+  ),
+  optparse::make_option(
+    "--phenotype-col",
+    type = "character",
+    help = "Name of case/control phenotype column",
+    dest = "phenotype_col"
+  ),
+  optparse::make_option(
+    "--covariate-file",
+    type = "character",
+    help = "Path to a covariate file",
+    dest = "covariate_file"
+  ),
+  optparse::make_option(
+    "--pc-prefix",
+    type = "character",
+    default = "PC",
+    help = "Prefix of PC columns",
+    dest = "pc_prefix"
+  ),
+  optparse::make_option(
+    "--pc-num",
+    type = "integer",
+    default = 10,
+    help = "Number of PCs included in GWAS",
+    dest = "pc_num"
+  ),
+  optparse::make_option(
+    "--plot-pc-num",
+    type = "integer",
+    default = 10,
+    help = "Number of PCs being plotted",
+    dest = "plot_pc_num"
+  ),
+  optparse::make_option(
+    "--out",
+    type = "character",
+    help = "Output prefix",
+  ),
+  optparse::make_option(
+    c("--disable-export"),
+    action = "store_true",
+    default = FALSE,
+    help = "Do not export per-sample projected PC values"
+  )
+)
+
+args <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
+
+# Input check
+if (is.null(args$sscore)) {
+  stop("Please specifify --sscore.")
+}
+
+if (is.null(args$covariate_file)) {
+  stop("Please specifify --covariate-file.")
+}
+
+if (is.null(args$ancestry) & (is.null(args$ancestry_file) | is.null(args$ancestry_col))) {
+  stop("Please specify either --ancestry or --ancestry-file and --ancestry-col.")
+}
+
+if (is.null(args$phenotype_file) | is.null(args$phenotype_col)) {
+  stop("Please specifiy --phenotype-file and --phenotype-col.")
+}
+
+if ((args$pc_num %% 2 != 0) | (args$plot_pc_num %% 2 != 0)) {
+  stop("Please specify an even number for --pc-num or --plot-pc-num")
+}
+
+if (is.null(args$out)) {
+  stop("Please specifify --out.")
+}
+
+
+main(args)
