@@ -34,12 +34,12 @@ def ref_filtering(ref_mt, pass_mt, unrel, outliers, pass_unrel_mt, overwrite: bo
 def intersect_target_ref(ref_mt_filt, snp_list, grch37_or_grch38, intersect_out, overwrite: bool = False):
     mt = hl.read_matrix_table(ref_mt_filt)
     if grch37_or_grch38.lower() == 'grch38':
-        snp_list = snp_list.key_by(locus=hl.locus(snp_list.chr, hl.int(snp_list.pos), reference_genome='GRCh38'),
+        snp_list = snp_list.key_by(locus=hl.locus(hl.str(snp_list.chr), hl.int(snp_list.pos), reference_genome='GRCh38'),
                                    alleles=[snp_list.ref, snp_list.alt])
         mt = mt.filter_rows(hl.is_defined(snp_list[mt.row_key]))
 
     elif grch37_or_grch38.lower() == 'grch37':
-        snp_list = snp_list.key_by(locus=hl.locus(snp_list.chr, hl.int(snp_list.pos), reference_genome='GRCh37'),
+        snp_list = snp_list.key_by(locus=hl.locus(hl.str(snp_list.chr), hl.int(snp_list.pos), reference_genome='GRCh37'),
                                    alleles=[snp_list.ref, snp_list.alt])
         # liftover snp list to GRCh38, filter to SNPs in mt
         rg37, rg38 = load_liftover()
@@ -89,7 +89,7 @@ def run_pca(prune_out: hl.MatrixTable, pca_prefix: str, overwrite: bool = False)
     pca_loadings.write(pca_prefix + 'loadings.ht', overwrite)  # PCA loadings
 
     #export loadings in plink format
-    ht = hl.read_table(pca_loadings)
+    ht = hl.read_table(pca_prefix + 'loadings.ht')
     ht = ht.key_by()
     ht_loadings = ht.select(ID=hl.variant_str(ht.locus, ht.alleles), ALT=ht.alleles[1],
                             **{f"PC{i}": ht.loadings[i - 1] for i in range(1, 21)})
