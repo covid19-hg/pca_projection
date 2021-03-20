@@ -301,8 +301,11 @@ if (is.null(args$phenotype_file) | is.null(args$phenotype_col)) {
   stop("Please specifiy --phenotype-file and --phenotype-col.")
 }
 
-if ((args$pc_num %% 2 != 0) | (args$plot_pc_num %% 2 != 0)) {
-  stop("Please specify an even number for --pc-num or --plot-pc-num")
+# Only plot even number of cohort PCs
+args$pc_num <- 2 * args$pc_num %/% 2
+
+if (args$plot_pc_num %% 2 != 0) {
+  stop("Please specify an even number for --plot-pc-num")
 }
 
 if (is.null(args$out)) {
