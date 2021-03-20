@@ -1,5 +1,15 @@
 import hail as hl
 import argparse
+import re
+
+
+def load_liftover():
+    # liftover gbmi to GRCh38 (gnomAD + HGDP is much larger, so not as easy to liftover)
+    rg37 = hl.get_reference('GRCh37')
+    rg38 = hl.get_reference('GRCh38')
+    rg38.add_liftover('gs://hail-common/references/grch38_to_grch37.over.chain.gz', rg37)  # 38 to 37
+    rg37.add_liftover('gs://hail-common/references/grch37_to_grch38.over.chain.gz', rg38)  # 37 to 38
+    return rg37, rg38
 
 
 def ref_filtering(ref_mt, pass_mt, unrel, outliers, pass_unrel_mt, overwrite: bool = False):
@@ -18,7 +28,7 @@ def ref_filtering(ref_mt, pass_mt, unrel, outliers, pass_unrel_mt, overwrite: bo
     pca_outliers = hl.import_table(outliers).key_by('s')
     mt_filt = mt_filt.filter_cols(hl.is_missing(pca_outliers[mt_filt.s]))
 
-    mt_filt.write(pass_unrel_mt)
+    mt_filt.write(pass_unrel_mt, overwrite)
 
 
 def intersect_target_ref(ref_mt_filt, snp_list, grch37_or_grch38, intersect_out, overwrite: bool = False):
@@ -49,8 +59,6 @@ def ld_prune_filter(intersect_out, prune_out, overwrite: bool = False):
     mt = hl.variant_qc(mt)
     mt_filt = mt.filter_rows((mt.variant_qc.AF[0] > 0.001) & (mt.variant_qc.AF[0] < 0.999))
     print(mt_filt.count())
-    #snps_removed = mt.filter_rows((mt.variant_qc.AF[0] < 0.001) | (mt.variant_qc.AF[0] > 0.999))
-    #snps_removed.rows().show()
 
     mt_intersect_prune = hl.ld_prune(mt_filt.GT, r2=0.8, bp_window_size=500000)
     mt_intersect_pruned = mt_filt.filter_rows(hl.is_defined(mt_intersect_prune[mt_filt.row_key]))
@@ -93,7 +101,7 @@ def run_pca(prune_out: hl.MatrixTable, pca_prefix: str, overwrite: bool = False)
 def main(args):
 
     if args.run_ref_filtering:
-        ref_filtering(args.ref_mt, args.pass_mt, args.unrel_mt, args.outliers, args.pass_unrel_mt)
+        ref_filtering(args.ref_mt, args.pass_mt, args.unrel_mt, args.outliers, args.pass_unrel_mt, args.overwrite)
 
     if args.run_intersection:
         snp_list = hl.import_table(args.snp_list, impute=True)
@@ -127,4 +135,3 @@ if __name__ == '__main__':
     parser.add_argument('--overwrite', action='store_true')
     args = parser.parse_args()
     main(args)
-
