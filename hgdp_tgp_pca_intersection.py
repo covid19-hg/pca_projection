@@ -24,22 +24,20 @@ def ref_filtering(ref_mt, pass_mt, unrel, outliers, pass_unrel_mt, overwrite: bo
 def intersect_target_ref(ref_mt_filt, snp_list, grch37_or_grch38, intersect_out, overwrite: bool = False):
     mt = hl.read_matrix_table(ref_mt_filt)
     if grch37_or_grch38.lower() == 'grch38':
+        snp_list = snp_list.key_by(locus=hl.locus(snp_list.chr, hl.int(snp_list.pos), reference_genome='GRCh38'),
+                                   alleles=[snp_list.ref, snp_list.alt])
         mt = mt.filter_rows(hl.is_defined(snp_list[mt.row_key]))
 
     elif grch37_or_grch38.lower() == 'grch37':
-        pass
-        # # liftover gbmi to GRCh38 (gnomAD + HGDP is much larger, so not as easy to liftover)
-        # rg37, rg38 = load_liftover()
-        #
-        # gbmi = hl.import_table(
-        #     'gs://gbmi/Asthma_Bothsex_inv_var_meta_GBMI_10212020.txt.list_inallBiobanks.hg19.mapped.reformat.txt')
-        # gbmi = gbmi.key_by(locus=hl.locus(gbmi.chr, hl.int(gbmi.pos)), alleles=[gbmi.ref, gbmi.alt])
-        # gbmi_liftover = gbmi.annotate(new_locus=hl.liftover(gbmi.locus, 'GRCh38'))
-        # gbmi_liftover = gbmi_liftover.filter(hl.is_defined(gbmi_liftover.new_locus))
-        # gbmi_liftover = gbmi_liftover.key_by(locus=gbmi_liftover.new_locus, alleles=gbmi_liftover.alleles)
-        #
-        # # intersect hgdp + 1kG + gbmi
-        # mt_gbmi_intersect_snps = mt_filt.filter_rows(hl.is_defined(gbmi_liftover[mt_filt.row_key]))
+        snp_list = snp_list.key_by(locus=hl.locus(snp_list.chr, hl.int(snp_list.pos), reference_genome='GRCh37'),
+                                   alleles=[snp_list.ref, snp_list.alt])
+        # liftover snp list to GRCh38, filter to SNPs in mt
+        rg37, rg38 = load_liftover()
+
+        snp_liftover = snp_list.annotate(new_locus=hl.liftover(snp_list.locus, 'GRCh38'))
+        snp_liftover = snp_liftover.filter(hl.is_defined(snp_liftover.new_locus))
+        snp_liftover = snp_liftover.key_by(locus=snp_liftover.new_locus, alleles=snp_liftover.alleles)
+        mt = mt.filter_rows(hl.is_defined(snp_liftover[mt.row_key]))
 
     mt = mt.repartition(5000)
     mt = mt.checkpoint(intersect_out, overwrite = overwrite, _read_if_exists = not overwrite)
@@ -79,8 +77,18 @@ def run_pca(prune_out: hl.MatrixTable, pca_prefix: str, overwrite: bool = False)
     pca_scores.export(pca_prefix + 'scores.txt.bgz')  # individual-level PCs
 
     pca_loadings.export(pca_prefix + 'loadings.txt.bgz')
+
     pca_loadings.write(pca_prefix + 'loadings.ht', overwrite)  # PCA loadings
 
+    #export loadings in plink format
+    ht = hl.read_table(pca_loadings)
+    ht = ht.key_by()
+    ht_loadings = ht.select(ID=hl.variant_str(ht.locus, ht.alleles), ALT=ht.alleles[1],
+                            **{f"PC{i}": ht.loadings[i - 1] for i in range(1, 21)})
+    ht_afreq = ht.select(**{"#ID": hl.variant_str(ht.locus, ht.alleles), "REF": ht.alleles[0], "ALT": ht.alleles[1],
+                            "ALT1_FREQ": ht.pca_af})
+    ht_loadings.export(pca_prefix + 'loadings.plink.tsv')
+    ht_afreq.export(pca_prefix + 'loadings.plink.afreq')
 
 def main(args):
 
@@ -89,8 +97,6 @@ def main(args):
 
     if args.run_intersection:
         snp_list = hl.import_table(args.snp_list, impute=True)
-        snp_list = snp_list.key_by(locus=hl.locus(snp_list.chr, hl.int(snp_list.pos), reference_genome='GRCh38'),
-                                   alleles=[snp_list.ref, snp_list.alt])
         intersect_target_ref(args.pass_unrel_mt, snp_list, args.grch37_or_grch38, args.intersect_out, args.overwrite)
 
     if args.run_ld_prune_filter:
