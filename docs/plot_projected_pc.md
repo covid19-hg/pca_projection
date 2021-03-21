@@ -1,7 +1,14 @@
 # Plot projected PCs
 
-Once `project_pc.sh` finished, please run `plot_projected_pc.R` to plot all the projected PCs. This script also generates a text file containing per-sample projected PCs **without including cohort-specific individual IDs**.
+Once `project_pc.sh` finished, please run `Rscript plot_projected_pc.R` to plot all the projected PCs. This script also generates a text file containing per-sample projected PCs **without including cohort-specific individual IDs**.
 
+## Required packages
+To run the script, please install the following packages.
+```
+install.packages(c("data.table", "hexbin", "optparse", "patchwork", "tidyverse"))
+```
+
+## Available options
 ```
 Rscript plot_projected_pc.R \
   --sscore [path to .sscore output] \

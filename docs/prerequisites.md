@@ -2,14 +2,15 @@
 
 - [PLINK 2.00 software](https://www.cog-genomics.org/plink/2.0/)
   - NB: This is **not PLINK 1.90 nor 1.07**. We need **the latest version of PLINK 2.0** for analysis.
-- Pre-computed PCA loadings: see below.
-- Reference allele frequencies: see below.
+- R packages: please see details [here](plot_projected_pc.md#required-packages).
+- Pre-computed PCA loadings: see [below](#download-the-pre-computed-pca-loadings-and-reference-allele-frequencies).
+- Reference allele frequencies: see [below](#download-the-pre-computed-pca-loadings-and-reference-allele-frequencies).
 - Imputed genotypes in PLINK compatible format
   - Imputed dosages (`.pgen`/`.pvar`/`.psam`, `.vcf`, or `.bgen`) are preferred; but hard-called genotypes (`.bed`/`.bim`/`.fam`) are acceptable.
   - Please follow the following instructions to convert non-PLINK files (`.vcf` or `.bgen`) to PLINK binary format.
 - Phenotype file
 - Covariate file
-  - Please use the same files that you used for GWAS
+  - Please use the same files that you used for GWAS.
 
 ## Download the pre-computed PCA loadings and reference allele frequencies
 
@@ -30,7 +31,11 @@ We provide variant IDs in three formats: 1) `chromosome:position:ref:alt` in GRC
 - Pre-compmuted PCA loadings: PATH
 - Reference allele frequencies: PATH
 
-For advanced users, we also provide the files in Hail format. Please refer to [our example script](../hail_project_pc.py) and [the Hail documentation](https://hail.is/) for further information.
+### For advanced users: Hail format
+
+For advanced users, we also provide the files in Hail format here: `gs://covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.ht`.
+
+Please refer to [our example script](../hail_project_pc.py) and [the Hail documentation](https://hail.is/) for further information.
 
 ## Prepare imputed dosages in PLINK2 format
 

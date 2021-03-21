@@ -3,7 +3,7 @@ import hail as hl
 from gnomad.sample_qc.ancestry import pc_project
 
 MT_PATH = "gs://"
-PCA_LOADINGS_PATH = "gs://gbmi/hgdp_tgp_pca_loadings.ht"
+PCA_LOADINGS_PATH = "covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.ht"
 SAMPLE_FIELD_NAME = "s"
 OUTPATH = "gs://"
 
@@ -26,6 +26,7 @@ pca_loadings = hl.read_table(PCA_LOADINGS_PATH)
 mt = mt.filter_rows(hl.is_defined(pca_loadings[mt.locus, mt.alleles]))
 ht = project_individuals(pca_loadings, mt)
 
+# output the result in .sscore format
 ht = ht.key_by()
 ht = ht.select(
     **{"#FID": ht[SAMPLE_FIELD_NAME], "IID": ht[SAMPLE_FIELD_NAME]}, **{f"PC{i}": ht[f"PC{i}"] for i in range(1, 21)}
