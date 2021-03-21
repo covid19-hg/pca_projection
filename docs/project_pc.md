@@ -4,8 +4,8 @@
 Before running please edit `project_pc.sh` with your cohort-specific parameters. Specifically:
 * `STUDY_NAME`: Name of your study
 * `ANALYST_NAME`: Analyst name
-* `PCA_LOADINGS`: Path to the pre-computed PCA loadings downloaded from [here]().
-* `PCA_AF`: Path to the reference allele frequencies downloaded from [here]().
+* `PCA_LOADINGS`: Path to the pre-computed PCA loadings downloaded from [here](prerequisites.md#download-the-pre-computed-pca-loadings-and-reference-allele-frequencies).
+* `PCA_AF`: Path to the reference allele frequencies downloaded from [here](prerequisites.md#download-the-pre-computed-pca-loadings-and-reference-allele-frequencies).
 
 You need to prepare imputed dosage files in PLINK binary format. Please refer to [prerequisites.md](prerequisites.md) for more instructions. You need either:
 * `PFILE`: [Recommended] PLINK 2 binary format
@@ -22,7 +22,7 @@ Internally, it calls `plink2 --score` with the following options.
 plink2 \
   ${input_command} \
   --score ${PCA_LOADINGS} \
-  variance-standardize \
+  center \
   cols=-scoreavgs,+scoresums \
   list-variants \
   header-read \

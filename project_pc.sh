@@ -49,7 +49,7 @@ fi
 plink2 \
   ${input_command} \
   --score ${PCA_LOADINGS} \
-  variance-standardize \
+  center \
   cols=-scoreavgs,+scoresums \
   list-variants \
   header-read \
