@@ -23,7 +23,7 @@ If you have imputed dosage files split by chromosome, you need to combine them f
 To avoid creating too big dosage files, we first extract a variant list from the pre-computed loadings file for filtering.
 
 ```
-cut -f1 [path to the pre-computed loadings file] | tail -n+2 > variants.extract
+zcat [path to the pre-computed loadings file] | cut -f1 | tail -n +2 > variants.extract
 ```
 
 ### PLINK 2 binary format (`.pgen`/`.pvar`/`.psam`)
