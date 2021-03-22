@@ -18,18 +18,18 @@ We provide variant IDs in three formats: 1) `chromosome:position:ref:alt` in GRC
 
 ### GRCh37
 
-- Pre-compmuted PCA loadings: PATH
-- Reference allele frequencies: PATH
+- Pre-compmuted PCA loadings: [hgdp_tgp_pca_covid19hgi_snps_loadings.GRCh37.plink.tsv](https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.GRCh37.plink.tsv)
+- Reference allele frequencies: [hgdp_tgp_pca_covid19hgi_snps_loadings.GRCh37.plink.afreq](https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.GRCh37.plink.afreq)
 
 ### GRCh38
 
-- Pre-compmuted PCA loadings: [hgdp_tgp_pca_covid19hgi_snps_loadings.plink.tsv.gz](https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.plink.tsv.gz)
-- Reference allele frequencies: [hgdp_tgp_pca_covid19hgi_snps_loadings.plink.afreq.gz](https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.plink.afreq.gz)
+- Pre-compmuted PCA loadings: [hgdp_tgp_pca_covid19hgi_snps_loadings.GRCh38.plink.tsv](https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.GRCh38.plink.tsv)
+- Reference allele frequencies: [hgdp_tgp_pca_covid19hgi_snps_loadings.GRCh38.plink.afreq](https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.GRCh38.plink.afreq)
 
 ### rsid
 
-- Pre-compmuted PCA loadings: PATH
-- Reference allele frequencies: PATH
+- Pre-compmuted PCA loadings: [hgdp_tgp_pca_covid19hgi_snps_loadings.rsid.plink.tsv](https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.rsid.plink.tsv)
+- Reference allele frequencies: [hgdp_tgp_pca_covid19hgi_snps_loadings.rsid.plink.afreq](https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.rsid.plink.afreq)
 
 ### For advanced users: Hail format
 

@@ -3,7 +3,7 @@ import hail as hl
 from gnomad.sample_qc.ancestry import pc_project
 
 MT_PATH = "gs://"
-PCA_LOADINGS_PATH = "covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.ht"
+PCA_LOADINGS_PATH = "gs://covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_loadings.ht"
 SAMPLE_FIELD_NAME = "s"
 OUTPATH = "gs://"
 
