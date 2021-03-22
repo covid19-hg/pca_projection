@@ -5,7 +5,7 @@ Once `project_pc.sh` finished, please run `Rscript plot_projected_pc.R` to plot 
 ## Required packages
 To run the script, please install the following packages.
 ```
-install.packages(c("data.table", "hexbin", "optparse", "patchwork", "tidyverse"))
+install.packages(c("data.table", "hexbin", "optparse", "patchwork", "R.utils", "tidyverse"))
 ```
 
 ## Available options

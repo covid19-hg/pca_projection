@@ -6,9 +6,9 @@ set -eu
 ################################################################################
 # Metadata
 STUDY_NAME=""
-ANALYST_NAME=""
+ANALYST_LAST_NAME=""
 DATE="$(date +'%Y%m%d')"
-OUTNAME="${STUDY_NAME}.${ANALYST_NAME}"
+OUTNAME="${STUDY_NAME}.${ANALYST_LAST_NAME}.${DATE}"
 ################################################################################
 # Location of downloaded input files
 PCA_LOADINGS=""
@@ -33,8 +33,16 @@ if [[ -z "${STUDY_NAME}" ]]; then
   error_exit "Please specify \$STUDY_NAME."
 fi
 
-if [[ -z "${ANALYST_NAME}" ]]; then
-  error_exit "Please specify \$ANALYST_NAME."
+if [[ -z "${ANALYST_LAST_NAME}" ]]; then
+  error_exit "Please specify \$ANALYST_LAST_NAME."
+fi
+
+if [[ -z "${PCA_LOADINGS}" ]]; then
+  error_exit "Please specify \$PCA_LOADINGS."
+fi
+
+if [[ -z "${PCA_AF}" ]]; then
+  error_exit "Please specify \$PCA_AF."
 fi
 
 if [[ -n "${PFILE}" ]]; then
@@ -53,6 +61,6 @@ plink2 \
   cols=-scoreavgs,+scoresums \
   list-variants \
   header-read \
-  --score-col-nums 3-22 \
+  --score-col-nums 3-12 \
   --read-freq ${PCA_AF} \
   --out ${OUTNAME}

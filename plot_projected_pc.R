@@ -4,6 +4,7 @@ library(data.table)
 library(hexbin)
 library(optparse)
 library(patchwork)
+library(R.utils)
 library(tidyverse)
 options(datatable.fread.datatable = FALSE)
 
@@ -31,13 +32,14 @@ get_pop_colors <- function(pop = NULL) {
   color_oth <- "#ABB9B9"
   color_sas <- "#FF9912"
 
-  color_cases <- "#9D1309"
-  color_controls <- "grey50"
+  color_cases <- "darkorange"
+  color_controls <- "darkblue"
 
   pop_colors <- c(
     AFR = color_afr,
     AMR = color_amr,
     ASJ = color_asj,
+    CSA = color_sas,
     EAS = color_eas,
     EUR = color_eur,
     FIN = color_fin,
@@ -113,11 +115,30 @@ save_plots <- function(plots, prefix, pc_num) {
 
 
 main <- function(args) {
+  plot_pcs <- paste0("PC", seq(args$plot_pc_num))
+
+  # Load reference score
+  message(sprintf("Loading --reference-score-file %s", args$reference_score_file))
+  reference_score <- data.table::fread(args$reference_score_file)
+  reference_range <-
+    purrr::map(plot_pcs, function(pc) {
+      range(reference_score[[pc]])
+    }) %>%
+    magrittr::set_names(plot_pcs)
+
   # Load projected PCs
   message(sprintf("Loading --sscore %s", args$sscore))
   projected_pc <- data.table::fread(args$sscore, colClasses = list(character = c("#FID", "IID")))
   colnames(projected_pc) <- gsub("^#", "", colnames(projected_pc))
   colnames(projected_pc) <- gsub("_SUM$", "", colnames(projected_pc))
+
+  # Load projected PCs
+  message(sprintf("Loading --sscore-vars %s", args$sscore_vars))
+  n_sscore_vars <- data.table::fread(args$sscore_vars, header = FALSE) %>%
+    nrow()
+
+  # divide by sqrt(n_sscore_vars)
+  projected_pc[, plot_pcs] <- projected_pc[, plot_pcs] / sqrt(n_sscore_vars)
 
   # Load cohort PCs
   message(sprintf("Loading --covariate-file %s", args$covariate_file))
@@ -145,41 +166,36 @@ main <- function(args) {
     data.table::fread(args$phenotype_file, colClasses = list(character = c("FID", "IID"))) %>%
     dplyr::rename(pheno = !!as.symbol(args$phenotype_col)) %>%
     dplyr::select(FID, IID, pheno) %>%
-    dplyr::mutate(pheno = dplyr::case_when(
+    dplyr::mutate(pheno = factor(dplyr::case_when(
       pheno == 1 ~ "cases",
       pheno == 0 ~ "controls",
       TRUE ~ NA_character_
-    ))
+    ), levels = c("controls", "cases")))
 
   # Only retain samples with phenotype
   projected_pc <-
     dplyr::left_join(projected_pc, pheno) %>%
     tidyr::drop_na(pheno)
+
   cohort_pc <-
     dplyr::left_join(cohort_pc, pheno) %>%
     tidyr::drop_na(pheno)
 
   # Plot PC figures
-  plot_all <- function(df, prefix) {
+  plot_all <- function(df, prefix, reference_range = list()) {
     pca <-
-      Reduce(`+`, c(apply(matrix(seq(args$plot_pc_num), ncol = 2, byrow = TRUE), 1, function(x) {
-        pc <- paste0("PC", x)
-        plot_pca(df, pc[1], pc[2], "pop")
+      Reduce(`+`, c(apply(matrix(plot_pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
+        plot_pca(df, pc[1], pc[2], "pop", xlim = reference_range[[pc[1]]], ylim = reference_range[[pc[2]]])
       }), list(patchwork::guide_area()))) + patchwork::plot_layout(ncol = 2, guides = "collect")
 
     pca_case_control <-
-      Reduce(`+`, c(apply(matrix(seq(args$plot_pc_num), ncol = 2, byrow = TRUE), 1, function(x) {
-        pc <- paste0("PC", x)
-        plot_pca(df, pc[1], pc[2], "pheno")
+      Reduce(`+`, c(apply(matrix(plot_pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
+        plot_pca(df, pc[1], pc[2], "pheno", xlim = reference_range[[pc[1]]], ylim = reference_range[[pc[2]]])
       }), list(patchwork::guide_area()))) + patchwork::plot_layout(ncol = 2, guides = "collect")
 
     pca_density <-
-      Reduce(`+`, apply(matrix(
-        seq(args$plot_pc_num),
-        ncol = 2, byrow = TRUE
-      ), 1, function(x) {
-        pc <- paste0("PC", x)
-        plot_pca_density(df, pc[1], pc[2]) +
+      Reduce(`+`, apply(matrix(plot_pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
+        plot_pca_density(df, pc[1], pc[2], xlim = reference_range[[pc[1]]], ylim = reference_range[[pc[2]]]) +
           theme(legend.position = "none")
       })) + patchwork::plot_layout(ncol = 2)
 
@@ -193,7 +209,7 @@ main <- function(args) {
   }
 
   message("Plotting PC figures...")
-  plot_all(projected_pc, paste0(args$out, ".projected"))
+  plot_all(projected_pc, paste0(args$out, ".projected"), reference_range = reference_range)
   plot_all(cohort_pc, paste0(args$out, ".cohort"))
 
   # Export per-sample PC values
@@ -204,6 +220,8 @@ main <- function(args) {
       data.table::fwrite(fname, sep = "\t")
   }
 
+  warnings()
+
   message("Successfully finished!")
 }
 
@@ -212,6 +230,12 @@ option_list <- list(
     "--sscore",
     type = "character",
     help = "Path to the PLINK 2's .sscore output",
+  ),
+  optparse::make_option(
+    "--sscore-vars",
+    type = "character",
+    help = "Path to the PLINK 2's .sscore.vars output",
+    dest = "sscore_vars"
   ),
   optparse::make_option(
     "--ancestry",
@@ -270,6 +294,13 @@ option_list <- list(
     dest = "plot_pc_num"
   ),
   optparse::make_option(
+    "--reference-score-file",
+    type = "character",
+    default = "https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_scores.txt.gz",
+    help = "Path to a reference score file [Required if your system doesn't have the Internet access]",
+    dest = "reference_score_file"
+  ),
+  optparse::make_option(
     "--out",
     type = "character",
     help = "Output prefix",
@@ -278,7 +309,8 @@ option_list <- list(
     c("--disable-export"),
     action = "store_true",
     default = FALSE,
-    help = "Do not export per-sample projected PC values"
+    help = "Do not export per-sample projected PC values",
+    dest = "disable_export"
   )
 )
 
@@ -287,6 +319,14 @@ args <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
 # Input check
 if (is.null(args$sscore)) {
   stop("Please specifify --sscore.")
+}
+
+if (is.null(args$sscore_vars)) {
+  fname <- paste0(args$sscore, ".vars")
+  if (!file.exists(fname)) {
+    stop("Please specify --sscore-vars.")
+  }
+  args$sscore_vars <- fname
 }
 
 if (is.null(args$covariate_file)) {
@@ -312,5 +352,7 @@ if (is.null(args$out)) {
   stop("Please specifify --out.")
 }
 
+message("Started running with the following args:")
+print(args)
 
 main(args)
