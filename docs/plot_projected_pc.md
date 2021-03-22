@@ -30,7 +30,7 @@ If your cohort contains multiple ancestries, please use `--ancestry-file` and `-
 
 If your cohort submits multiple analyses, please run the script with different `--phenotype-col`. It will automatically excludes samples without case/control status.
 
-If your system doesn't have access to the Internet, please download a reference score file [here](gs://covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_scores.txt.gz) and specify it via `--reference-score-file`.
+If your system doesn't have access to the Internet, please download a reference score file [here](https://storage.googleapis.com/covid19-hg-public/pca_projection/hgdp_tgp_pca_covid19hgi_snps_scores.txt.gz) and specify it via `--reference-score-file`.
 
 ## Upload
 
