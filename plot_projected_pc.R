@@ -88,7 +88,7 @@ plot_pca_density <- function(dataset, first_pc, second_pc, xlim = NULL, ylim = N
 
 save_plots <- function(plots, prefix, pc_num) {
   ggsave(
-    sprintf("%s.PC1-%d.all.png", prefix, pc_num),
+    sprintf("%s.all.PC1-%d.png", prefix, pc_num),
     plots,
     height = 3 * (pc_num %/% 4 + 1),
     width = 6,
@@ -166,11 +166,13 @@ main <- function(args) {
     data.table::fread(args$phenotype_file, colClasses = list(character = c("FID", "IID"))) %>%
     dplyr::rename(pheno = !!as.symbol(args$phenotype_col)) %>%
     dplyr::select(FID, IID, pheno) %>%
-    dplyr::mutate(pheno = factor(dplyr::case_when(
-      pheno == 1 ~ "cases",
-      pheno == 0 ~ "controls",
-      TRUE ~ NA_character_
-    ), levels = c("controls", "cases")))
+    dplyr::mutate(
+      study = args$study,
+      pheno = factor(dplyr::case_when(
+        pheno == 1 ~ "cases",
+        pheno == 0 ~ "controls",
+        TRUE ~ NA_character_
+      ), levels = c("controls", "cases")))
 
   # Only retain samples with phenotype
   projected_pc <-
@@ -182,22 +184,37 @@ main <- function(args) {
     tidyr::drop_na(pheno)
 
   # Plot PC figures
-  plot_all <- function(df, prefix, reference_range = list()) {
+  plot_all <- function(df, prefix, study, reference_range = list()) {
     pca <-
       Reduce(`+`, c(apply(matrix(plot_pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
         plot_pca(df, pc[1], pc[2], "pop", xlim = reference_range[[pc[1]]], ylim = reference_range[[pc[2]]])
-      }), list(patchwork::guide_area()))) + patchwork::plot_layout(ncol = 2, guides = "collect")
+      }), list(patchwork::guide_area()))) +
+      patchwork::plot_layout(ncol = 2, guides = "collect") +
+      patchwork::plot_annotation(
+        title = sprintf("%s (by ancestry): # samples = %d, # variants = %d", study, nrow(df), n_sscore_vars),
+        theme = theme(plot.title = element_text(size = 8))
+      )
 
     pca_case_control <-
       Reduce(`+`, c(apply(matrix(plot_pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
         plot_pca(df, pc[1], pc[2], "pheno", xlim = reference_range[[pc[1]]], ylim = reference_range[[pc[2]]])
-      }), list(patchwork::guide_area()))) + patchwork::plot_layout(ncol = 2, guides = "collect")
+      }), list(patchwork::guide_area()))) +
+      patchwork::plot_layout(ncol = 2, guides = "collect") +
+      patchwork::plot_annotation(
+        title = sprintf("%s (by case/control): # samples = %d, # variants = %d", study, nrow(df), n_sscore_vars),
+        theme = theme(plot.title = element_text(size = 8))
+      )
 
     pca_density <-
       Reduce(`+`, apply(matrix(plot_pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
         plot_pca_density(df, pc[1], pc[2], xlim = reference_range[[pc[1]]], ylim = reference_range[[pc[2]]]) +
           theme(legend.position = "none")
-      })) + patchwork::plot_layout(ncol = 2)
+      })) +
+      patchwork::plot_layout(ncol = 2) +
+      patchwork::plot_annotation(
+        title = sprintf("%s (density): # samples = %d, # variants = %d", study, nrow(df), n_sscore_vars),
+        theme = theme(plot.title = element_text(size = 8))
+      )
 
     save_plots(pca, paste0(prefix, ".pca.ancestry"), args$plot_pc_num)
     save_plots(pca_case_control, paste0(prefix, ".pca.case_control"), args$plot_pc_num)
@@ -209,13 +226,13 @@ main <- function(args) {
   }
 
   message("Plotting PC figures...")
-  plot_all(projected_pc, paste0(args$out, ".projected"), reference_range = reference_range)
-  plot_all(cohort_pc, paste0(args$out, ".cohort"))
+  plot_all(projected_pc, paste0(args$out, ".projected"), args$study, reference_range = reference_range)
+  plot_all(cohort_pc, paste0(args$out, ".cohort"), args$study)
 
   # Export per-sample PC values
   if (!args$disable_export) {
     fname <- paste0(args$out, ".projected.pca.tsv.gz")
-    message(paste("Removing individual IDs and exporting ", fname))
+    message(paste("Removing individual IDs and exporting", fname))
     dplyr::select(projected_pc, -FID, -IID) %>%
       data.table::fwrite(fname, sep = "\t")
   }
@@ -236,6 +253,11 @@ option_list <- list(
     type = "character",
     help = "Path to the PLINK 2's .sscore.vars output",
     dest = "sscore_vars"
+  ),
+  optparse::make_option(
+    "--study",
+    type = "character",
+    help = "Name of your study",
   ),
   optparse::make_option(
     "--ancestry",
@@ -319,6 +341,10 @@ args <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
 # Input check
 if (is.null(args$sscore)) {
   stop("Please specifify --sscore.")
+}
+
+if (is.null(args$study)) {
+  stop("Please specify --study.")
 }
 
 if (is.null(args$sscore_vars)) {
