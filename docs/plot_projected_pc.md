@@ -15,12 +15,20 @@ Rscript plot_projected_pc.R \
   --phenotype-file [path to phenotype file] \
   --phenotype-col [phenotype column name]
   --covariate-file [path to covariate file] \
-  --pc-prefix [prefix of PC columns] \
+  --pc-prefix [prefix of PC columns: default "PC"] \
   --pc-num [number of PCs used in GWAS] \
   --ancestry [ancestry code: AFR, AMR, EAS, EUR, MID, or SAS] \
   --study [your study name] \
   --out [output name prefix]
 ```
+
+Ancestry codes for `--ancestry` are from [the flagship paper](https://www.medrxiv.org/content/10.1101/2021.03.10.21252820v1):
+* African (AFR)
+* Admixed American (AMR)
+* East Asian (EAS)
+* European (EUR)
+* Middle Eastern (MID)
+* South Asian (SAS)
 
 If your cohort contains multiple ancestries, please use `--ancestry-file` and `--ancestry-col` to specify for each individual.
 ```
