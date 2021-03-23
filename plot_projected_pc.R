@@ -131,6 +131,8 @@ main <- function(args) {
   projected_pc <- data.table::fread(args$sscore, colClasses = list(character = c("#FID", "IID")))
   colnames(projected_pc) <- gsub("^#", "", colnames(projected_pc))
   colnames(projected_pc) <- gsub("_SUM$", "", colnames(projected_pc))
+  # available ID cols: PLINK2 now accepts only IID
+  id_cols <- intersect(colnames(projected_pc), c("FID", "IID"))
 
   # Load projected PCs
   message(sprintf("Loading --sscore-vars %s", args$sscore_vars))
@@ -143,8 +145,8 @@ main <- function(args) {
   # Load cohort PCs
   message(sprintf("Loading --covariate-file %s", args$covariate_file))
   cohort_pc <-
-    data.table::fread(args$covariate_file, colClasses = list(character = c("FID", "IID"))) %>%
-    dplyr::select(FID, IID, dplyr::starts_with(args$pc_prefix))
+    data.table::fread(args$covariate_file, colClasses = list(character = id_cols)) %>%
+    dplyr::select(id_cols, dplyr::starts_with(args$pc_prefix))
 
   # Load or set ancestry
   if (!is.null(args$ancestry)) {
@@ -153,9 +155,9 @@ main <- function(args) {
   } else {
     message(sprintf("Loading --ancestry-file %s", args$ancestry_file))
     ancestry <-
-      data.table::fread(args$ancestry_file, colClasses = list(character = c("FID", "IID"))) %>%
+      data.table::fread(args$ancestry_file, colClasses = list(character = id_cols)) %>%
       dplyr::rename(pop = !!as.symbol(args$ancestry_col)) %>%
-      dplyr::select(FID, IID, pop)
+      dplyr::select(id_cols, pop)
     projected_pc <- dplyr::left_join(projected_pc, ancestry)
     cohort_pc <- dplyr::left_join(cohort_pc, ancestry)
   }
@@ -163,16 +165,17 @@ main <- function(args) {
   # Load phenotype
   message(sprintf("Loading --phenotype-file %s", args$phenotype_file))
   pheno <-
-    data.table::fread(args$phenotype_file, colClasses = list(character = c("FID", "IID"))) %>%
+    data.table::fread(args$phenotype_file, colClasses = list(character = id_cols)) %>%
     dplyr::rename(pheno = !!as.symbol(args$phenotype_col)) %>%
-    dplyr::select(FID, IID, pheno) %>%
+    dplyr::select(id_cols, pheno) %>%
     dplyr::mutate(
       study = args$study,
       pheno = factor(dplyr::case_when(
         pheno == 1 ~ "cases",
         pheno == 0 ~ "controls",
         TRUE ~ NA_character_
-      ), levels = c("controls", "cases")))
+      ), levels = c("controls", "cases"))
+    )
 
   # Only retain samples with phenotype
   projected_pc <-
@@ -233,7 +236,7 @@ main <- function(args) {
   if (!args$disable_export) {
     fname <- paste0(args$out, ".projected.pca.tsv.gz")
     message(paste("Removing individual IDs and exporting", fname))
-    dplyr::select(projected_pc, -FID, -IID) %>%
+    dplyr::select(projected_pc, -id_cols) %>%
       data.table::fwrite(fname, sep = "\t")
   }
 
