@@ -147,6 +147,7 @@ main <- function(args) {
   cohort_pc <-
     data.table::fread(args$covariate_file, colClasses = list(character = id_cols)) %>%
     dplyr::select(id_cols, dplyr::starts_with(args$pc_prefix))
+  colnames(cohort_pc) <- gsub(paste0("^", args$pc_prefix), "PC", colnames(cohort_pc))
 
   # Load or set ancestry
   if (!is.null(args$ancestry)) {
@@ -187,9 +188,10 @@ main <- function(args) {
     tidyr::drop_na(pheno)
 
   # Plot PC figures
-  plot_all <- function(df, prefix, study, reference_range = list()) {
+  plot_all <- function(df, prefix, study, pc_num, reference_range = list()) {
+    pcs <- paste0("PC", seq(pc_num))
     pca <-
-      Reduce(`+`, c(apply(matrix(plot_pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
+      Reduce(`+`, c(apply(matrix(pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
         plot_pca(df, pc[1], pc[2], "pop", xlim = reference_range[[pc[1]]], ylim = reference_range[[pc[2]]])
       }), list(patchwork::guide_area()))) +
       patchwork::plot_layout(ncol = 2, guides = "collect") +
@@ -199,7 +201,7 @@ main <- function(args) {
       )
 
     pca_case_control <-
-      Reduce(`+`, c(apply(matrix(plot_pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
+      Reduce(`+`, c(apply(matrix(pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
         plot_pca(df, pc[1], pc[2], "pheno", xlim = reference_range[[pc[1]]], ylim = reference_range[[pc[2]]])
       }), list(patchwork::guide_area()))) +
       patchwork::plot_layout(ncol = 2, guides = "collect") +
@@ -209,7 +211,7 @@ main <- function(args) {
       )
 
     pca_density <-
-      Reduce(`+`, apply(matrix(plot_pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
+      Reduce(`+`, apply(matrix(pcs, ncol = 2, byrow = TRUE), 1, function(pc) {
         plot_pca_density(df, pc[1], pc[2], xlim = reference_range[[pc[1]]], ylim = reference_range[[pc[2]]]) +
           theme(legend.position = "none")
       })) +
@@ -219,18 +221,24 @@ main <- function(args) {
         theme = theme(plot.title = element_text(size = 8))
       )
 
-    save_plots(pca, paste0(prefix, ".pca.ancestry"), args$plot_pc_num)
-    save_plots(pca_case_control, paste0(prefix, ".pca.case_control"), args$plot_pc_num)
+    save_plots(pca, paste0(prefix, ".pca.ancestry"), pc_num)
+    save_plots(pca_case_control, paste0(prefix, ".pca.case_control"), pc_num)
     save_plots(
       pca_density,
       paste0(prefix, ".pca.density"),
-      args$plot_pc_num
+      pc_num
     )
   }
 
   message("Plotting PC figures...")
-  plot_all(projected_pc, paste0(args$out, ".projected"), args$study, reference_range = reference_range)
-  plot_all(cohort_pc, paste0(args$out, ".cohort"), args$study)
+  plot_all(
+    projected_pc,
+    paste0(args$out, ".projected"),
+    args$study,
+    pc_num = args$plot_pc_num,
+    reference_range = reference_range
+  )
+  plot_all(cohort_pc, paste0(args$out, ".cohort"), args$study, pc_num = args$pc_num)
 
   # Export per-sample PC values
   if (!args$disable_export) {
