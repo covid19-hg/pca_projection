@@ -22,7 +22,7 @@ Internally, it calls `plink2 --score` with the following options.
 plink2 \
   ${input_command} \
   --score ${PCA_LOADINGS} \
-  center \
+  variance-standardize \
   cols=-scoreavgs,+scoresums \
   list-variants \
   header-read \
