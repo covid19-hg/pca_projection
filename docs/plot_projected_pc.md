@@ -3,12 +3,15 @@
 Once `project_pc.sh` finished, please run `Rscript plot_projected_pc.R` to plot all the projected PCs. This script also generates a text file containing per-sample projected PCs **without including cohort-specific individual IDs**.
 
 ## Required packages
+
 To run the script, please install the following packages.
+
 ```
 install.packages(c("data.table", "hexbin", "optparse", "patchwork", "R.utils", "tidyverse"))
 ```
 
 ## Available options
+
 ```
 Rscript plot_projected_pc.R \
   --sscore [path to .sscore output] \
@@ -23,14 +26,16 @@ Rscript plot_projected_pc.R \
 ```
 
 Ancestry codes for `--ancestry` are from [the flagship paper](https://www.medrxiv.org/content/10.1101/2021.03.10.21252820v1):
-* African (AFR)
-* Admixed American (AMR)
-* East Asian (EAS)
-* European (EUR)
-* Middle Eastern (MID)
-* South Asian (SAS)
+
+- African (AFR)
+- Admixed American (AMR)
+- East Asian (EAS)
+- European (EUR)
+- Middle Eastern (MID)
+- South Asian (SAS)
 
 If your cohort contains multiple ancestries, please use `--ancestry-file` and `--ancestry-col` to specify for each individual.
+
 ```
   --ancestry-file [path to ancestry file] \
   --ancestry-col [ancestry column name]
