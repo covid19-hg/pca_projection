@@ -49,6 +49,8 @@ To avoid creating too big dosage files, we first extract a variant list from the
 cut -f1 [path to the pre-computed loadings file] | tail -n +2 > variants.extract
 ```
 
+If variant IDs in your genotype files are of a different format than in the extracted variant list `variants.extract`, please make an appropriate `variants.extract` with the same ID format as in your genotype files. After following these instructions you will have imported your genotype files to PLINK 2 pfiles -- please then rename the variants in the resulting `.pvar` file again to match the ids in the pre-computed loadings file.
+
 ### PLINK 2 binary format (`.pgen`/`.pvar`/`.psam`)
 
 #### Extraction
